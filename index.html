@@ -141,81 +141,88 @@
     </div>
   </div>
 
-  <!-- Google tag (gtag.js) -->
+  <!-- Google Analytics 4 Measurement Protocol (прямая отправка без gtag.js) -->
   <script>
-    // Инициализируем dataLayer ДО загрузки gtag.js
-    window.dataLayer = window.dataLayer || [];
-    
-    // Переопределяем gtag функцию для фильтрации событий
-    function gtag() {
-      const args = Array.from(arguments);
-      
-      // Блокируем автоматические события
-      if (args[0] === 'event') {
-        const eventName = args[1];
-        if (['page_view', 'session_start', 'user_engagement'].includes(eventName)) {
-          console.log('[GA4] Blocked automatic event:', eventName);
-          return; // Не отправляем автоматические события
-        }
+    // Генерируем Client ID (сохраняем в localStorage для постоянства)
+    const getOrCreateClientId = () => {
+      let clientId = localStorage.getItem('ga4_client_id');
+      if (!clientId) {
+        // Генерируем новый Client ID в формате UUID
+        clientId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+          const r = Math.random() * 16 | 0;
+          const v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+        localStorage.setItem('ga4_client_id', clientId);
       }
-      
-      // Разрешаем только нужные события
-      if (args[0] === 'event' && args[1] === 'view_unistall_page') {
-        dataLayer.push(arguments);
-        return;
+      return clientId;
+    };
+
+    // Генерируем Session ID
+    const getSessionId = () => {
+      let sessionId = sessionStorage.getItem('ga4_session_id');
+      if (!sessionId) {
+        sessionId = Date.now().toString();
+        sessionStorage.setItem('ga4_session_id', sessionId);
       }
+      return sessionId;
+    };
+
+    // Отправка события через Measurement Protocol
+    const sendGA4Event = async (eventName, eventParams = {}) => {
+      const measurementId = 'G-93NFZ9WFJN';
+      const apiSecret = 'cJbG5HTvRCqLmZEF-zQpcA';
       
-      // Разрешаем config и другие служебные команды
-      if (args[0] !== 'event') {
-        dataLayer.push(arguments);
-        return;
-      }
-    }
-    
-    // Перехватываем все push в dataLayer для дополнительной фильтрации
-    const originalPush = Array.prototype.push;
-    Object.defineProperty(window.dataLayer, 'push', {
-      value: function() {
-        const args = Array.from(arguments);
-        
-        // Блокируем автоматические события на уровне dataLayer
-        if (args[0] === 'event') {
-          const eventName = args[1];
-          if (['page_view', 'session_start', 'user_engagement'].includes(eventName)) {
-            console.log('[GA4] Blocked automatic event in dataLayer:', eventName);
-            return window.dataLayer.length; // Возвращаем текущую длину, не добавляя событие
+      const clientId = getOrCreateClientId();
+      const sessionId = getSessionId();
+      const timestamp = Date.now();
+
+      const payload = {
+        client_id: clientId,
+        events: [{
+          name: eventName,
+          params: {
+            ...eventParams,
+            session_id: sessionId,
+            engagement_time_msec: 0, // Отключаем engagement
+            page_location: window.location.href,
+            page_title: document.title,
+            page_path: window.location.pathname
           }
-        }
+        }]
+      };
+
+      const url = `https://www.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${apiSecret}`;
+
+      try {
+        // Используем fetch с mode: 'no-cors' для обхода CORS
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload),
+          mode: 'no-cors', // Обходим CORS (не получим ответ, но запрос отправится)
+          keepalive: true
+        });
         
-        // Разрешаем только view_unistall_page и служебные команды
-        if (args[0] === 'event' && args[1] !== 'view_unistall_page') {
-          console.log('[GA4] Blocked event:', args[1]);
-          return window.dataLayer.length;
-        }
-        
-        return originalPush.apply(this, arguments);
-      },
-      writable: true,
-      configurable: true
-    });
-  </script>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-93NFZ9WFJN"></script>
-  <script>
-    gtag('js', new Date());
-    gtag('config', 'G-93NFZ9WFJN', {
-      send_page_view: false
-    });
-    
+        console.log('[GA4] view_unistall_page event sent successfully via Measurement Protocol');
+        return true;
+      } catch (error) {
+        console.error('[GA4] Error sending event:', error);
+        return false;
+      }
+    };
+
     // Отправка события view_unistall_page при загрузке страницы
     const sendViewUnistallPage = () => {
-      gtag('event', 'view_unistall_page', {
+      sendGA4Event('view_unistall_page', {
         page_location: window.location.href,
         page_title: document.title,
         page_path: window.location.pathname
       });
-      console.log('[GA4] view_unistall_page event sent successfully');
     };
-    
+
     // Отправка события при загрузке страницы
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', sendViewUnistallPage);
