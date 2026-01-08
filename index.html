@@ -147,10 +147,31 @@
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
+    
+    // Отключаем автоматические события ДО конфигурации
+    gtag('set', {
+      send_page_view: false,
+      custom_map: {}
+    });
+    
     gtag('config', 'G-93NFZ9WFJN', {
       // Отключаем автоматическую отправку page_view, session_start, user_engagement
-      send_page_view: false
+      send_page_view: false,
+      // Отключаем автоматический сбор engagement
+      engagement_time_msec: 0
     });
+    
+    // Перехватываем и блокируем автоматические события
+    const originalPush = window.dataLayer.push;
+    window.dataLayer.push = function() {
+      const args = Array.from(arguments);
+      // Блокируем автоматические события
+      if (args[0] === 'event' && ['page_view', 'session_start', 'user_engagement'].includes(args[1])) {
+        console.log('[GA4] Blocked automatic event:', args[1]);
+        return;
+      }
+      return originalPush.apply(this, arguments);
+    };
     
     // Отправка события view_unistall_page при загрузке страницы
     const sendViewUnistallPage = () => {
