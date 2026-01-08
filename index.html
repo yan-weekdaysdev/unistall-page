@@ -147,7 +147,10 @@
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-    gtag('config', 'G-93NFZ9WFJN');
+    gtag('config', 'G-93NFZ9WFJN', {
+      // Отключаем автоматическую отправку page_view, session_start, user_engagement
+      send_page_view: false
+    });
     
     // Отправка события view_unistall_page при загрузке страницы
     const sendViewUnistallPage = () => {
